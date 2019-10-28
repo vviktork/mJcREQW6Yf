@@ -1,0 +1,56 @@
+version: '3'
+
+services:
+
+  # PostgreSQL
+  db:
+    image: postgres
+    hostname: db
+
+  # Redis
+  redis:
+    image: redis
+    hostname: redis
+    expose:
+      - "6379"
+    ports:
+      - "6379:6379"
+    volumes:
+       - ./code
+
+  # RabbitMQ  
+  rabbit:
+    image: rabbitmq:latest
+    hostname: rabbit
+
+  # Django web server 
+  web: 
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    links:
+      - db
+      - rabbit
+      - redis
+    depends_on:
+      - db
+      - worker
+
+ # Celery worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command:  ["celery", "worker", "--app=Alyticstest.celery", "--concurrency=1", "--hostname=localhost@%h", "--loglevel=INFO"]
+    volumes:
+      - .:/code
+    links:
+      - db
+    depends_on:
+      - rabbit
+      - redis
